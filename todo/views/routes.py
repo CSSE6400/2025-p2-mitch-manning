@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from todo.models import db
 from todo.models.todo import Todo
-from datetime import datetime
+from datetime import datetime, timedelta
 
 api = Blueprint('api', __name__, url_prefix='/api/v1')
 
@@ -22,10 +22,18 @@ def health():
 
 @api.route('/todos', methods=['GET'])
 def get_todos():
-    todos = Todo.query.all()
-    result = []
-    for todo in todos:
-        result.append(todo.to_dict())
+    completed = request.args.get('completed')
+    window = request.args.get('window')
+
+    query = Todo.query
+    if completed in ['true', 'false']:
+        query = query.filter(Todo.completed == (completed == 'true'))
+    if window:
+        deadline_at = (datetime.now() + timedelta(days=int(window))).strftime("%Y-%m-%dT00:00:00")
+        query = query.filter(Todo.deadline_at <= deadline_at)
+    todos = query.all()
+
+    result = [todo.to_dict() for todo in todos]
     return jsonify(result)
 
 @api.route('/todos/<int:todo_id>', methods=['GET'])
@@ -37,6 +45,11 @@ def get_todo(todo_id):
 
 @api.route('/todos', methods=['POST'])
 def create_todo():
+    valid_params = ['title', 'description', 'completed', 'deadline_at']
+    incoming_params = request.json.keys()
+    if any(param not in valid_params for param in incoming_params) or 'title' not in incoming_params:
+        return jsonify({}), 400
+
     todo = Todo(
         title=request.json.get('title'),
         description=request.json.get('description'),
@@ -54,6 +67,11 @@ def create_todo():
 
 @api.route('/todos/<int:todo_id>', methods=['PUT'])
 def update_todo(todo_id):
+    valid_params = ['title', 'description', 'completed', 'deadline_at']
+    incoming_params = request.json.keys()
+    if any(param not in valid_params for param in incoming_params):
+        return jsonify({}), 400
+
     todo = Todo.query.get(todo_id)
     if todo is None:
         return jsonify({'error': 'Todo not found'}), 404
