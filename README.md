@@ -10,4 +10,11 @@ including how to run it.
 
 There are [resources](https://www.makeareadme.com) available to help you write a good README file.
 
+---
 
+Run the app
+
+```sh
+poetry add flask
+poetry run flask --app todo run -p 6400
+```
